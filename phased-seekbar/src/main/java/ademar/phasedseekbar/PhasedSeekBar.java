@@ -14,32 +14,33 @@ import android.view.View;
 
 public class PhasedSeekBar extends View {
 
-    protected static final int[] STATE_NORMAL = new int[] {};
-    protected static final int[] STATE_SELECTED = new int[] { android.R.attr.state_selected };
-    protected static final int[] STATE_PRESSED = new int[] { android.R.attr.state_pressed };
+    protected static final int[] STATE_NORMAL = new int[] {}; //Unselected anchor of Seek bar
+    protected static final int[] STATE_SELECTED = new int[] { android.R.attr.state_selected }; //selected anchor of SeekBar
+    protected static final int[] STATE_PRESSED = new int[] { android.R.attr.state_pressed }; //Pressed anchor of seekBar
 
     protected int[] mState = STATE_SELECTED;
 
-    protected boolean mModeIsHorizontal = true;
-    protected boolean mFirstDraw = true;
+    protected boolean mModeIsHorizontal = true; //Flag for Horizontal Seek bar
+    protected boolean mFirstDraw = true; //Flag to check first time background drawing
     protected boolean mUpdateFromPosition = false;
-    protected boolean mDrawOnOff = true;
-    protected boolean mFixPoint = true;
+    protected boolean mDrawOnOff = true; // Flag to check the state of Anchor
+    protected boolean mFixPoint = true; //Flag for fixed point(discrete) or floating point (continuous) seek bar
 
     protected Drawable mBackgroundDrawable;
     protected RectF mBackgroundPaddingRect;
 
-    protected int mCurrentX, mCurrentY;
-    protected int mPivotX, mPivotY;
-    protected int mItemHalfWidth, mItemHalfHeight;
-    protected int mItemAnchorHalfWidth, mItemAnchorHalfHeight;
-    protected int[][] mAnchors;
-    protected int mCurrentItem;
+    protected int mCurrentX, mCurrentY; // current coordinates of anchor
+    protected int mPivotX, mPivotY; // Pivot points of Handle
+    protected int mItemHalfWidth, mItemHalfHeight; // Half Height and width of part of seek bar
+    protected int mItemAnchorHalfWidth, mItemAnchorHalfHeight; //
+    protected int[][] mAnchors; //Array to store the position of Anchors
+    protected int mCurrentItem; // Position of current item
 
-    protected PhasedAdapter mAdapter;
-    protected PhasedListener mListener;
-    protected PhasedInteractionListener mInteractionListener;
+    protected PhasedAdapter mAdapter; // Adapter for seek bar
+    protected PhasedListener mListener; // Listen the Phase of Seek Bar
+    protected PhasedInteractionListener mInteractionListener; //
 
+    //constructors
     public PhasedSeekBar(Context context) {
         super(context);
         init(null, 0);
@@ -55,32 +56,42 @@ public class PhasedSeekBar extends View {
         init(attrs, defStyleAttr);
     }
 
+    //Initialize the view of seek bar
     protected void init(AttributeSet attrs, int defStyleAttr) {
         mBackgroundPaddingRect = new RectF();
         if (attrs != null) {
+            //Initialize the attribute array
             TypedArray a = getContext().obtainStyledAttributes(
                     attrs, R.styleable.PhasedSeekBar, defStyleAttr, 0);
 
+            //setting the flags for DrawOnOff, FixPoint and ModeHorizontal
             setDrawOnOff(a.getBoolean(R.styleable.PhasedSeekBar_phased_draw_on_off, mDrawOnOff));
             setFixPoint(a.getBoolean(R.styleable.PhasedSeekBar_phased_fix_point, mFixPoint));
             setModeIsHorizontal(a.getInt(R.styleable.PhasedSeekBar_phased_mode, 0) != 2);
 
+            //Initializing the Dimensions of the seek bar Background
             mBackgroundPaddingRect.left = a.getDimension(R.styleable.PhasedSeekBar_phased_base_margin_left, 0.0f);
             mBackgroundPaddingRect.top = a.getDimension(R.styleable.PhasedSeekBar_phased_base_margin_top, 0.0f);
             mBackgroundPaddingRect.right = a.getDimension(R.styleable.PhasedSeekBar_phased_base_margin_right, 0.0f);
             mBackgroundPaddingRect.bottom = a.getDimension(R.styleable.PhasedSeekBar_phased_base_margin_bottom, 0.0f);
 
+            // Initializing the midpoint cordinate of seek bar BackGround
             mItemHalfWidth = (int) (a.getDimension(R.styleable.PhasedSeekBar_phased_item_width, 0.0f) / 2.0f);
             mItemHalfHeight = (int) (a.getDimension(R.styleable.PhasedSeekBar_phased_item_width, 0.0f) / 2.0f);
+
+            //Initializing the midpoint coordinate of Anchor
             mItemAnchorHalfWidth = (int) (a.getDimension(R.styleable.PhasedSeekBar_phased_anchor_width, 0.0f) / 2.0f);
             mItemAnchorHalfHeight = (int) (a.getDimension(R.styleable.PhasedSeekBar_phased_anchor_height, 0.0f) / 2.0f);
 
+            //Initializing the Background of seek bar
             mBackgroundDrawable = a.getDrawable(R.styleable.PhasedSeekBar_phased_base_background);
 
+            // Recycle the TypedArray, to be re-used by a later caller
             a.recycle();
         }
     }
 
+    // Called on first draw of the BackGround
     protected void configure() {
         Rect rect = new Rect((int) mBackgroundPaddingRect.left,
                 (int) mBackgroundPaddingRect.top,
@@ -92,24 +103,49 @@ public class PhasedSeekBar extends View {
         mCurrentX = mPivotX = getWidth() / 2;
         mCurrentY = mPivotY = getHeight() / 2;
 
-        int count = getCount();
+        /*int count = getCount();
         int widthBase = rect.width() / count;
         int widthHalf = widthBase / 2;
         int heightBase = rect.height() / count;
         int heightHalf = heightBase / 2;
         mAnchors = new int[count][2];
+
+        *//*todo change this logic so that we can start from the beginning of the seek bar
+        Logic : for count = 3 and length = 10 for horizontal
+        1. Get the count of Drawables count = 3
+        2. put the first one at index 0.
+        3. baseWidth =
+        *//*
         for (int i = 0, j = 1; i < count; i++, j++) {
             mAnchors[i][0] = mModeIsHorizontal ? widthBase * j - widthHalf + rect.left : mPivotX;
             mAnchors[i][1] = !mModeIsHorizontal ? heightBase * j - heightHalf + rect.top : mPivotY;
+        }*/
+
+        int countOfAnchors = getCount();
+        int seekBarWidth = rect.width() + 2 * mItemAnchorHalfWidth;
+        int seekBarLength = rect.height() + 2 * mItemAnchorHalfHeight;
+        mAnchors = new int[countOfAnchors][2];
+        mAnchors[0][0] = mModeIsHorizontal ? rect.left + mItemAnchorHalfWidth : mPivotX;
+        mAnchors[0][1] = !mModeIsHorizontal ? rect.top + mItemAnchorHalfHeight : mPivotY;
+        mAnchors[countOfAnchors-1][0] = mModeIsHorizontal ? rect.right - mItemAnchorHalfWidth : mPivotX;
+        mAnchors[countOfAnchors-1][1] = !mModeIsHorizontal ? rect.bottom - mItemAnchorHalfHeight : mPivotY;
+
+        for (int index = 1,jIndex = 1; index <= countOfAnchors - 2; index++,jIndex++) {
+            int widthBaseSeekBar = (Math.abs(Math.abs(rect.right) - Math.abs(rect.left))) / (countOfAnchors-1);
+            int heightBaseSeekBar = (Math.abs(Math.abs(rect.bottom) - Math.abs(rect.top))) / (countOfAnchors-1);
+            mAnchors[index][0] = mModeIsHorizontal ? widthBaseSeekBar * jIndex + rect.left : mPivotX;
+            mAnchors[index][1] = !mModeIsHorizontal ? heightBaseSeekBar * jIndex + rect.top : mPivotY;
         }
     }
 
+    // Called when the current configuration of the resources being used by the application have changed.
     @Override
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         setFirstDraw(true);
     }
 
+    //used for drawing the background
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -168,6 +204,8 @@ public class PhasedSeekBar extends View {
         setFirstDraw(false);
     }
 
+
+    //Implement this method to handle touch screen motion events.
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         mCurrentX = mModeIsHorizontal ? getNormalizedX(event) : mPivotX;
@@ -189,39 +227,48 @@ public class PhasedSeekBar extends View {
         return super.onTouchEvent(event);
     }
 
+    //return the X coordinate of seek bar or a part of the seek bar
     protected int getNormalizedX(MotionEvent event) {
         return Math.min(Math.max((int) event.getX(), mItemHalfWidth), getWidth() - mItemHalfWidth);
     }
 
+    //return the Y coordinate of seek bar or a part of the seek bar
     protected int getNormalizedY(MotionEvent event) {
         return Math.min(Math.max((int) event.getY(), mItemHalfHeight), getHeight() - mItemHalfHeight);
     }
 
+    //Return the count of number of drawables on seek bar
     protected int getCount() {
         return isInEditMode() ? 3 : mAdapter.getCount();
     }
 
+    // set the adapter to seek bar
     public void setAdapter(PhasedAdapter adapter) {
         mAdapter = adapter;
     }
 
+    // Set the flag for first draw
     public void setFirstDraw(boolean firstDraw) {
         mFirstDraw = firstDraw;
     }
 
+    // set the listener for SeekBar
     public void setListener(PhasedListener listener) {
         mListener = listener;
     }
 
+    //set the Interaction Listener
     public void setInteractionListener(PhasedInteractionListener interactionListener) {
         mInteractionListener = interactionListener;
     }
 
+    // Set the current Position of the seek bar anchor
     public void setPosition(int position) {
         position = position < 0 ? 0 : position;
         position = position >= mAdapter.getCount() ? mAdapter.getCount() - 1 : position;
         mCurrentItem = position;
         mUpdateFromPosition = true;
+        //invalidate the position and onDraw is called
         invalidate();
     }
 
