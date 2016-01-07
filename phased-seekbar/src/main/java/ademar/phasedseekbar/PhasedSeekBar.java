@@ -1,5 +1,6 @@
 package ademar.phasedseekbar;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
@@ -8,6 +9,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -39,6 +41,8 @@ public class PhasedSeekBar extends View {
     protected PhasedAdapter mAdapter; // Adapter for seek bar
     protected PhasedListener mListener; // Listen the Phase of Seek Bar
     protected PhasedInteractionListener mInteractionListener; //
+
+    boolean isDragging, isAnimating = false; //Flag to check Animation
 
     //constructors
     public PhasedSeekBar(Context context) {
@@ -208,6 +212,8 @@ public class PhasedSeekBar extends View {
     //Implement this method to handle touch screen motion events.
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        int previousX = mCurrentX;
+        int previousY = mCurrentY;
         mCurrentX = mModeIsHorizontal ? getNormalizedX(event) : mPivotX;
         mCurrentY = !mModeIsHorizontal ? getNormalizedY(event) : mPivotY;
         int action = event.getAction();
@@ -222,9 +228,47 @@ public class PhasedSeekBar extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_UP:
+                if (previousX != mCurrentX) {
+                    startAnimation(previousX);
+                }
+                return true;
+            case MotionEvent.ACTION_CANCEL:
+                getParent().requestDisallowInterceptTouchEvent(false);
                 return true;
         }
         return super.onTouchEvent(event);
+    }
+
+    private int indexOfMinDistanceAnchor() {
+        int distance;
+        int minIndex = 0;
+        int count = mAdapter.getCount();
+        int minDistance = Integer.MAX_VALUE;
+        for (int i = 0; i < count; i++) {
+            distance = Math.abs(mModeIsHorizontal ? mAnchors[i][0] - mCurrentX : mAnchors[i][1] - mCurrentY);
+            if (minDistance > distance) {
+                minIndex = i;
+                minDistance = distance;
+            }
+        }
+        return minIndex;
+    }
+
+    private void startAnimation(int previousX) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            ValueAnimator anim = ValueAnimator.ofInt(previousX, mAnchors[indexOfMinDistanceAnchor()][0]);
+            anim.setDuration(800);
+            anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                        mCurrentX = (Integer) animation.getAnimatedValue();
+                        invalidate();
+                    }
+                }
+            });
+            anim.start();
+        }
     }
 
     //return the X coordinate of seek bar or a part of the seek bar
